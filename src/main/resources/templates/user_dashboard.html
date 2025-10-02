@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Time Attendance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- CSRF Meta -->
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- Navbar -->
+<nav class="bg-blue-600 text-white p-4 flex justify-between items-center shadow-md">
+    <div class="font-bold text-xl">Time Attendance</div>
+    <div class="flex items-center gap-4">
+        <span th:text="${username}" class="font-medium">User</span>
+        <form th:action="@{/logout}" method="post" class="inline">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+            <button type="submit" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded text-white transition duration-300">
+                Logout
+            </button>
+        </form>
+    </div>
+</nav>
+
+<div class="container mx-auto mt-8 px-4">
+
+    <!-- Flash message -->
+    <div id="messageContainer"></div>
+
+    <!-- Status Card -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div class="bg-white p-6 rounded-lg shadow hover:shadow-lg transition duration-300">
+            <h3 class="text-lg font-semibold mb-2">Current Status</h3>
+            <p th:text="${status}" class="text-xl font-bold text-green-500">Working</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow hover:shadow-lg transition duration-300">
+            <h3 class="text-lg font-semibold mb-2">Last Clock In</h3>
+            <p th:text="${lastClockIn}" class="text-gray-700 font-medium">08:30 AM</p>
+        </div>
+        <div class="bg-white p-6 rounded-lg shadow hover:shadow-lg transition duration-300">
+            <h3 class="text-lg font-semibold mb-2">Last Clock Out</h3>
+            <p th:text="${lastClockOut}" class="text-gray-700 font-medium">05:30 PM</p>
+        </div>
+    </div>
+
+    <!-- Clock In / Clock Out Buttons -->
+    <div class="flex justify-center gap-6 mb-8">
+        <button id="clockInBtn" 
+                th:disabled="${status == 'Working' || status == 'ClockedOut'}"
+                onclick="clockAction('/clockin')" 
+                class="bg-green-500 text-white px-6 py-3 rounded hover:bg-green-600 shadow transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+            Clock In
+        </button>
+        <button id="clockOutBtn" 
+                th:disabled="${status != 'Working'}"
+                onclick="clockAction('/clockout')" 
+                class="bg-red-500 text-white px-6 py-3 rounded hover:bg-red-600 shadow transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed">
+            Clock Out
+        </button>
+    </div>
+
+    <!-- Attendance Table -->
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h3 class="text-xl font-bold mb-4">Attendance Records</h3>
+        <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse table-auto">
+                <thead>
+                    <tr class="bg-gray-200 text-gray-700 uppercase text-sm">
+                        <th class="p-3 border">Date</th>
+                        <th class="p-3 border">Clock In</th>
+                        <th class="p-3 border">Clock Out</th>
+                        <th class="p-3 border">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr th:each="record : ${attendanceRecords}" class="hover:bg-gray-100 transition">
+                        <td class="p-3 border" th:text="${record.date}">2025-10-01</td>
+                        <td class="p-3 border" th:text="${record.clockIn}">08:30 AM</td>
+                        <td class="p-3 border" th:text="${record.clockOut}">05:30 PM</td>
+                        <td class="p-3 border" th:text="${record.status}">Present</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- JS สำหรับ GPS + CSRF + Flash -->
+<script>
+function clockAction(url) {
+    if (!navigator.geolocation) {
+        alert("Geolocation is not supported by this browser.");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(function(position) {
+        const csrfToken = document.querySelector('meta[name="_csrf"]').content;
+        const csrfHeader = document.querySelector('meta[name="_csrf_header"]').content;
+
+        const formData = new FormData();
+        formData.append('latitude', position.coords.latitude);
+        formData.append('longitude', position.coords.longitude);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                [csrfHeader]: csrfToken
+            }
+        })
+        .then(res => res.json())
+        .then(data => {
+            const container = document.getElementById('messageContainer');
+            container.innerHTML = ''; // ล้างข้อความเก่า
+
+            if (data.success) {
+                container.innerHTML = `<div class="bg-green-100 text-green-700 p-4 rounded mb-4">${data.success}</div>`;
+            } else if (data.error) {
+                container.innerHTML = `<div class="bg-red-100 text-red-700 p-4 rounded mb-4">${data.error}</div>`;
+            }
+
+            // Refresh ตารางและปุ่ม หลังจาก 1.5 วินาที
+            setTimeout(() => location.reload(), 1500);
+        })
+        .catch(err => alert("Error: " + err));
+    });
+}
+</script>
+
+</body>
+</html>
